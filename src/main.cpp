@@ -9,6 +9,11 @@
 
 M5Faces_Keyboard3 keyboard;
 
+// The text area is drawn off-screen into an M5Canvas and pushed to the
+// display in one shot, so redrawing on every keypress/cursor blink does not
+// flicker the way drawing directly on M5.Display did.
+static M5Canvas textCanvas(&M5.Display);
+
 // Typed text is redrawn as a whole each time it changes, so Backspace/Delete
 // actually erase the last character instead of leaving stray control bytes
 // on screen, and a blinking block cursor always marks the insertion point.
@@ -21,14 +26,13 @@ static constexpr uint32_t kCursorBlinkIntervalMs = 500;
 static constexpr size_t kMaxBufferLen            = 1024;
 
 static void redrawTextArea() {
-  M5.Display.fillRect(textAreaX, textAreaY, M5.Display.width() - textAreaX,
-                       M5.Display.height() - textAreaY, TFT_BLACK);
-  M5.Display.setCursor(textAreaX, textAreaY);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.print(textBuffer);
-  M5.Display.setTextColor(cursorOn ? TFT_BLACK : TFT_WHITE, cursorOn ? TFT_WHITE : TFT_BLACK);
-  M5.Display.print(' ');
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  textCanvas.fillScreen(TFT_BLACK);
+  textCanvas.setCursor(0, 0);
+  textCanvas.setTextColor(TFT_WHITE, TFT_BLACK);
+  textCanvas.print(textBuffer);
+  textCanvas.setTextColor(cursorOn ? TFT_BLACK : TFT_WHITE, cursorOn ? TFT_WHITE : TFT_BLACK);
+  textCanvas.print(' ');
+  textCanvas.pushSprite(textAreaX, textAreaY);
 }
 
 void setup() {
@@ -47,6 +51,14 @@ void setup() {
 
   textAreaX = 0;
   textAreaY = M5.Display.getCursorY();
+
+  // 8bpp keeps the sprite small enough for non-PSRAM boards (Basic/Grey/Fire)
+  // while still being plenty for white-on-black text.
+  textCanvas.setColorDepth(8);
+  textCanvas.setTextFont(2);
+  textCanvas.setTextSize(1);
+  textCanvas.createSprite(M5.Display.width() - textAreaX, M5.Display.height() - textAreaY);
+
   redrawTextArea();
 }
 
